@@ -2,11 +2,11 @@
 var FONT = 32;
  
 // map dimensions
-var ROWS = 13;
-var COLS = 18;
+var ROWS = 15;
+var COLS = 15;
  
 // number of actors per level, including player
-var ACTORS = 20; //ratio 15 tiles pet actor
+var ACTORS = 15; //ratio 15 tiles pet actor
 
 // the structure of the map
 var map;
@@ -23,18 +23,18 @@ var livingEnemies;
 var actorMap;
 
 // initialize phaser, call create() once done
-var game = new Phaser.Game(COLS * FONT * 0.6, ROWS * FONT, Phaser.AUTO, null, {
+var game = new Phaser.Game(COLS * FONT, ROWS * FONT, Phaser.AUTO, null, {
+		preload: preload,
         create: create
 });
 
 function preload() {
-	game.load.image('wall', 'assets/wall.png');
-    game.load.image('ground', 'assets/ground.png');
+	game.load.image('wall', '../assets/wall.png');
+    game.load.image('ground', '../assets/ground.png');
 } 
 
 
 function create() {
-		game.add.sprite(0, 0, 'wall');
         // init keyboard commands
         game.input.keyboard.addCallbacks(null, null, onKeyUp);
 
@@ -56,6 +56,7 @@ function create() {
 	    initActors();
 
 	    drawActors();
+        debugger;
 }
  
 function onKeyUp(event) {
@@ -103,11 +104,11 @@ function initMap() {
                 var newRow = [];
                 for (var x = 0; x < COLS; x++) {
                      if (Math.random() > 0.8){
-                     	//game.add.sprite(x, y, 'wall');
+                     	game.add.sprite(x*32, y*32, 'wall');
                         newRow.push('#');
                     }
                     else{
-                    	//game.add.sprite(x, y, 'ground');
+                        game.add.sprite(x*32, y*32, 'ground');
                         newRow.push('.');
                     }
                 }
@@ -118,13 +119,13 @@ function initMap() {
 function drawMap() {
     for (var y = 0; y < ROWS; y++)
         for (var x = 0; x < COLS; x++)
-            _screen[y][x].content = map[y][x];
+            _screen[y][x].content = map[y][x]=='#' || map[y][x]=='.'?'':map[y][x];
 }
 
 function initCell(chr, x, y) {
         // add a single cell in a given position to the ascii display
         var style = { font: FONT + "px monospace", fill:"#fff"};
-        return game.add.text(FONT*0.6*x, FONT*y, chr, style);
+        return game.add.text(FONT*x, FONT*y, chr, style);
 }
 
 function randomInt(max) {
