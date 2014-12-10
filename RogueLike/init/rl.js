@@ -2,11 +2,11 @@
 var FONT = 32;
  
 // map dimensions
-var ROWS = 10;
-var COLS = 15;
+var ROWS = 13;
+var COLS = 18;
  
 // number of actors per level, including player
-var ACTORS = 10;
+var ACTORS = 20; //ratio 15 tiles pet actor
 
 // the structure of the map
 var map;
@@ -26,10 +26,15 @@ var actorMap;
 var game = new Phaser.Game(COLS * FONT * 0.6, ROWS * FONT, Phaser.AUTO, null, {
         create: create
 });
- 
+
+function preload() {
+	game.load.image('wall', 'assets/wall.png');
+    game.load.image('ground', 'assets/ground.png');
+} 
 
 
 function create() {
+		game.add.sprite(0, 0, 'wall');
         // init keyboard commands
         game.input.keyboard.addCallbacks(null, null, onKeyUp);
 
@@ -97,10 +102,14 @@ function initMap() {
         for (var y = 0; y < ROWS; y++) {
                 var newRow = [];
                 for (var x = 0; x < COLS; x++) {
-                     if (Math.random() > 0.8)
+                     if (Math.random() > 0.8){
+                     	//game.add.sprite(x, y, 'wall');
                         newRow.push('#');
-                    else
+                    }
+                    else{
+                    	//game.add.sprite(x, y, 'ground');
                         newRow.push('.');
+                    }
                 }
                 map.push(newRow);
         }
@@ -128,7 +137,7 @@ function initActors() {
         actorMap = {};
         for (var e=0; e<ACTORS; e++) {
                 // create new actor
-                var actor = { x:0, y:0, hp:e == 0?3:1 };
+                var actor = { x:0, y:0, hp:e == 0?5:1 };
                 do {
                         // pick a random position that is both a floor and not occupied
                         actor.y=randomInt(ROWS);
