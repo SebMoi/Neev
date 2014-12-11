@@ -1,0 +1,83 @@
+h3{
+	margin-top: 10px!important;
+}
+#separator-1{
+	border-bottom: 3px solid #C6C4AD;
+}
+.separator-saumon{
+	border-bottom: 3px solid #E8634E;
+	margin: 20px 25%;
+}
+.saumon-text{
+	color:#E8634E;
+}
+.block-text-1{
+	min-height: 100px;
+}
+#info-master{
+	margin-top: 10px;
+}
+#master{
+	text-align: center;
+	background-color: #E5E2D3;
+	width: 100%;
+	min-height: 900px;
+}
+#content{
+	text-align: center;
+	margin-bottom: 15px;
+}
+.img-master{
+	height: 350px;
+	width: 350px;
+}
+#img-prez {
+	display: inline-block;
+    border-radius: 50%;
+    overflow: hidden;
+    width: 350px;
+    height: 350px;
+}
+#img-prez img {
+	text-align: center;
+    display: block;
+	/* Stretch 
+  	height: 100%;
+  	width: 100%; */
+	min-width: 100%;
+	min-height: 100%;
+}
+.font-title {
+	font: normal normal normal 94px/1.4em 'Josefin Slab',serif;
+}
+#download-btn{
+	margin-top: 20px;
+	padding:4px 18px;
+	border: 2px solid #E8634E;
+	text-align: center;
+	display: inline-block;
+	font-weight: bold;
+	cursor:pointer;
+}
+.hoverBtn{
+	background-color: #E8634E;
+	color:white;
+}
+#footer{
+	min-height: 200px;
+	background-color:#E8634E;
+	color:white;
+	padding:15px 0; 
+}
+#header{
+	background-color: #E8634E;
+	height: 12px;
+	margin-bottom: 30px;
+}
+.footer-title{
+	font-size: 17px;
+	
+}
+.footer-section{
+	margin-bottom: 10px;
+}

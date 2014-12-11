@@ -6,7 +6,7 @@ var ROWS = 15;
 var COLS = 15;
  
 // number of actors per level, including player
-var ACTORS = 15; //ratio 15 tiles pet actor
+var ACTORS = 25; //ratio 15 tiles pet actor
 
 // the structure of the map
 var map;
@@ -138,7 +138,7 @@ function initActors() {
         actorMap = {};
         for (var e=0; e<ACTORS; e++) {
                 // create new actor
-                var actor = { x:0, y:0, hp:e == 0?5:1 };
+                var actor = { x:0, y:0, hp:e == 0?3:1 };
                 do {
                         // pick a random position that is both a floor and not occupied
                         actor.y=randomInt(ROWS);
@@ -158,7 +158,7 @@ function initActors() {
 function drawActors() {
         for (var a in actorList) {
                 if (actorList[a] != null && actorList[a].hp > 0)
-                        _screen[actorList[a].y][actorList[a].x].content = a == 0?''+player.hp:'e';
+                        _screen[actorList[a].y][actorList[a].x].content = a == 0?''+player.hp:'Penis';
         }
 }
 
