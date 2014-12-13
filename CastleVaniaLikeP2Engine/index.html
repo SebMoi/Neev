@@ -1,0 +1,230 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+	<meta charset="UTF-8" />
+	<title>Phaser - </title>
+	<script type="text/javascript" src="js/phaser/build/phaser.js"></script>
+    <style type="text/css">
+        body canvas {
+            margin-left: 20%;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update,render: render });
+var playerCollisionGroup;
+var baddiesCollisionGroup;
+var platforms;
+var player;
+var momentum;
+var jumpButton;
+var deadGroup;
+var lastMomentumAnim = null;
+var jumptimer = 0;
+
+function preload() {
+	game.load.image('sky', 'assets/sky.png');
+    game.load.image('ground', 'assets/platform.png');
+    game.load.spritesheet('player', 'assets/_player.png', 34, 46);
+    game.load.spritesheet('baddie', 'assets/baddie.png', 32, 32);
+}
+
+function create() {
+	deadGroup = game.add.group();
+	 //  We're going to be using physics, so enable the Arcade Physics system
+    game.physics.startSystem(Phaser.Physics.P2JS);
+
+    //Enable collision callback
+    game.physics.p2.setImpactEvents(true);
+
+    //  Create our collision groups. One for the player, one for the pandas
+    playerCollisionGroup = game.physics.p2.createCollisionGroup();
+    baddiesCollisionGroup = game.physics.p2.createCollisionGroup();
+
+    // So the 2 groups collide with wach other but they collide with the world bound
+    game.physics.p2.updateBoundsCollisionGroup();
+
+    //  A simple background for our game
+    var sky = game.add.sprite(0, 0, 'sky');
+
+    // Fix sky to camera 
+    sky.fixedToCamera = true;
+
+    //  The platforms group contains the ground and the 2 ledges we can jump on
+    platforms = game.add.group();
+ 
+    //  We will enable physics for any object that is created in this group
+    platforms.enableBody = true;
+
+    jumpButton = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+
+
+    // Here we create the ground.
+    var ground = platforms.create(0, game.world.height - 64, 'ground');
+ 
+    //  Scale it to fit the width of the game (the original sprite is 400x32 in size)
+    ground.scale.setTo(1, 2);
+ 
+    //  This stops it from falling away when you jump on it
+    ground.body.immovable = true;
+ 
+    //  Now let's create two ledges
+    var ledge = platforms.create(400, 400, 'ground');
+ 
+    ledge.body.immovable = true;
+ 
+    //ledge = platforms.create(-150, 250, 'ground');
+ 
+    ledge.body.immovable = true;
+
+
+    var baddies = game.add.group();
+    baddies.enableBody = true;
+    baddies.physicsBodyType = Phaser.Physics.P2JS;
+
+    players = game.add.group();
+    players.enableBody = true;
+    players.physicsBodyType = Phaser.Physics.P2JS;
+
+    for (var i = 0; i < 10; i++)
+    {
+        var baddie = baddies.create(game.world.randomX, game.world.randomY, 'baddie');
+        baddie.body.setRectangle(32, 32);
+
+        //  Tell the baddie to use the baddiesCollisionGroup 
+        baddie.body.setCollisionGroup(baddiesCollisionGroup);
+
+        //  Baddies will collide against themselves and the player
+        //  If you don't set this they'll not collide with anything.
+        //  The first parameter is either an array or a single collision group.
+        baddie.body.collides(playerCollisionGroup);
+    }
+    // The player and its settings
+    player = addAttributsToPlayer(player);
+
+    game.physics.p2.gravity.y = 400;
+
+    //  Our two animations, walking left and right.
+    player.animations.add('stillLookingLeft', [3,2], 4, true);
+    player.animations.add('stillLookingRight', [0,1], 4, true);
+
+    player.animations.add('runningLeftCycle', [35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20], 24, true);
+    player.animations.add('runningRightCycle', [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19], 24, true);
+
+    player.animations.add('runningFastLeftCycle', [35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20], 32, true);
+    player.animations.add('runningFastRightCycle', [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19], 32, true);
+
+    player.animations.add('jumpingLookingRight', [36,37], 7, true);
+    player.animations.add('jumpingLookingLeft', [39,38], 7, true);
+
+    player.animations.add('airFastLookingRight', [40,41,42,43,44,45,46,47], 17, true);
+    player.animations.add('airFastLookingLeft', [55,54,53,52,51,50,49,48], 17, true);
+
+    player.animations.add('crouchedLookingRight', [56,57], 2, true);
+    player.animations.add('crouchedLookingLeft', [59,58], 2, true);
+
+    player.animations.add('fallingLookingRight', [60,61,62,63], 7, true);
+    player.animations.add('fallingLookingLeft', [67,66,65,64], 7, true);
+
+    player.animations.add('walkingLookingRight', [68,69,70,71], 10, false);
+    player.animations.add('walkingLookingLeft', [75,74,73,72], 10, false);
+}
+
+function update() {
+	if(player.currentAcceleration == 0){
+        deadGroup = null;
+        deadGroup = game.add.group();
+    }
+
+    cursors = game.input.keyboard.createCursorKeys();
+
+    playerBasicMouvementAnimation();
+
+    deadGroup.forEach(function(sprite) {
+        sprite.kill();
+    });
+    if(player.playerAcceleration == 0){
+        deadGroup.forEach(function(sprite) {
+            sprite.destroy();
+        });
+    }
+}
+function playerBasicMouvementAnimation(){
+}
+function render() {
+	game.debug.text('Player Hp: ' + player.currentHp, 32, 180+5);
+}
+function playerAirFastAnim(){
+    player.lookingRight?
+        player.animations.play('airFastLookingRight'):
+        player.animations.play('airFastLookingLeft');
+}
+function playerFallingAnim(){
+    player.lookingRight?
+        player.animations.play('fallingLookingRight'):
+        player.animations.play('fallingLookingLeft');
+}
+function playerStillAnim(){
+    player.lookingRight?
+        player.animations.play('stillLookingRight'):
+        player.animations.play('stillLookingLeft');
+}
+function playerJumpingAnim(){
+    player.lookingRight?
+        player.animations.play('jumpingLookingRight'):
+        player.animations.play('jumpingLookingLeft');
+}
+function playerCrouchedAnim(){
+    player.lookingRight?
+        player.animations.play('crouchedLookingRight'):
+        player.animations.play('crouchedLookingLeft');
+}
+function playerRunningAnim(){
+    player.lookingRight?
+        player.animations.play('runningRightCycle'):
+        player.animations.play('runningLeftCycle');
+}
+function playerRunningFastAnim(){
+    player.lookingRight?
+        player.animations.play('runningFastRightCycle'):
+        player.animations.play('runningFastLeftCycle');
+}
+function playerWalkingAnim(){
+    player.lookingRight?
+        player.animations.play('walkingLookingRight'):
+        player.animations.play('walkingLookingLeft');
+}
+function hitPlayer(){
+    player.currentHp -= 1; //replace with baddie dammage
+}
+function addAttributsToPlayer(player){
+    //player = game.add.sprite(34, game.world.height - 125, 'maria');
+    player = players.create(34, game.world.height - 125, 'player');
+    player.body.setRectangle(22, 46);
+    player.body.setCollisionGroup(playerCollisionGroup);
+    player.body.collides(baddiesCollisionGroup, hitPlayer, this);
+    player.lookingRight = true;
+    player.forcedLandingSpeed = 25;
+    player.acceleration = 1;
+    player.startSpeed = 90;
+    player.runningSpeedPoint = 20;
+    player.topAcceleration = 220;
+    player.isRunning = false;
+    player.haveMomentum = false;
+    player.currentAcceleration = 0;
+    player.maxHp = 5
+    player.currentHp = player.maxHp;
+    player.currentLvl = 1;
+    player.currentExp = 0;
+    player.nextLvl = player.currentLvl * 1000;
+    player.gotBoost = false;
+    return player;
+}
+</script>
+
+</body>
+</html>

@@ -30,16 +30,31 @@ function preload() {
     game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
     game.load.spritesheet('maria', 'assets/mariaWalkingStanding.png', 34, 46);
     game.load.spritesheet('momentum', 'assets/momentumSprite.png', 34, 46);
+    game.load.spritesheet('baddie', 'assets/baddie.png', 32, 32);
 }
 
 function create() {
 
     deadGroup = game.add.group();
 	 //  We're going to be using physics, so enable the Arcade Physics system
-    game.physics.startSystem(Phaser.Physics.ARCADE);
- 
+    //game.physics.startSystem(Phaser.Physics.P2JS);
+    
+    //Enable collision callback
+    //game.physics.p2.setImpactEvents(true);
+
+    //  Create our collision groups. One for the player, one for the pandas
+    //var playerCollisionGroup = game.physics.p2.createCollisionGroup();
+    //var baddiesCollisionGroup = game.physics.p2.createCollisionGroup();
+
+    // So the 2 groups collide with wach other but they collide with the world bound
+    //game.physics.p2.updateBoundsCollisionGroup();
+
     //  A simple background for our game
-    game.add.sprite(0, 0, 'sky');
+    var sky = game.add.sprite(0, 0, 'sky');
+
+    // Fix sky to camera 
+    sky.fixedToCamera = true;
+
     //  The platforms group contains the ground and the 2 ledges we can jump on
     platforms = game.add.group();
  
@@ -66,16 +81,46 @@ function create() {
  
     ledge.body.immovable = true;
 
+
+    var baddies = game.add.group();
+    baddies.enableBody = true;
+    baddies.physicsBodyType = Phaser.Physics.P2JS;
+
+    /*for (var i = 0; i < 2; i++)
+    {
+        var baddie = baddies.create(game.world.randomX, game.world.randomY, 'baddie');
+        baddie.body.setRectangle(32, 32);
+
+        //  Tell the baddie to use the baddiesCollisionGroup 
+        baddie.body.setCollisionGroup(baddiesCollisionGroup);
+
+        //  Baddies will collide against themselves and the player
+        //  If you don't set this they'll not collide with anything.
+        //  The first parameter is either an array or a single collision group.
+        baddie.body.collides(playerCollisionGroup);
+    }*/
+
     // The player and its settings
     player = addAttributsToPlayer(player);
-    
+
+
+    //game.physics.p2.gravity.y = 400;
     //  We need to enable physics on the player
     game.physics.arcade.enable(player);
- 
+
+    //game.physics.p2.enable(player, false);
+    //player.body.setRectangle(22, 46);
+
+    
+    
     //  Player physics properties. Give the little guy a slight bounce.
     player.body.bounce.y = 0;
     player.body.gravity.y = 400;
     player.body.collideWorldBounds = true;
+
+    //  The ship will collide with the pandas, and when it strikes one the hitPanda callback will fire, causing it to alpha out a bit
+    //  When pandas collide with each other, nothing happens to them.
+    //player.body.collides(baddiesCollisionGroup, hitPlayer, this);
 
     //  Our two animations, walking left and right.
     player.animations.add('stillLookingLeft', [3,2], 4, true);
@@ -128,14 +173,18 @@ function update() {
     
 }
 function render() {
-    game.debug.text('IsRunning: ' + player.isRunning, 32, 20+5);
-    game.debug.text('HaveMomentum: ' + player.haveMomentum, 32, 40+5);
-    game.debug.text('CurrentAcceleration: ' + player.currentAcceleration.toFixed(2), 32, 60+5);
-    game.debug.text('CurrentRuningVelocity: ' + player.body.velocity.x.toFixed(2), 32, 80+5);
-    game.debug.text('CurrentFallingVelocity: ' + player.body.velocity.y.toFixed(2), 32, 100+5);
-    game.debug.text('JumpHeight: ' + getPlayerJumpingHeight().toFixed(2), 32, 120+5);
-    game.debug.text('TouchingDown: ' + player.body.touching.down, 32, 140+5);
-
+    var margin = 5;
+    game.debug.text('IsRunning: ' + player.isRunning, 32, 20+margin);
+    game.debug.text('HaveMomentum: ' + player.haveMomentum, 32, 40+margin);
+    game.debug.text('CurrentAcceleration: ' + player.currentAcceleration.toFixed(2), 32, 60+margin);
+    game.debug.text('CurrentRuningVelocity: ' + player.body.velocity.x.toFixed(2), 32, 80+margin);
+    game.debug.text('CurrentFallingVelocity: ' + player.body.velocity.y.toFixed(2), 32, 100+margin);
+    game.debug.text('JumpHeight: ' + getPlayerJumpingHeight().toFixed(2), 32, 120+margin);
+    game.debug.text('TouchingDown: ' + player.body.touching.down, 32, 140+margin);
+    game.debug.text('Player Lvl: ' + player.currentLvl, 32, 160+5);
+    game.debug.text('Player Hp: ' + player.currentHp, 32, 180+5);
+    game.debug.text('Player Exp: ' + player.currentExp, 32, 200+5);
+    game.debug.text('Player Next Lvl: ' + player.nextLvl, 32, 220+5);
 }
 function playerBasicMouvementAnimation(){
     player.body.velocity.x = 0;
@@ -223,7 +272,7 @@ function playerBasicMouvementAnimation(){
         player.body.velocity.y = getPlayerJumpingHeight();
     }else if ((cursors.up.isDown || jumpButton.isDown) && (jumptimer != 0)){
         //player is no longer on the ground, but is still holding the jump key
-        if (jumptimer > 30) { // player has been holding jump for over 30 frames, it's time to stop him
+        if (jumptimer > 24) { // player has been holding jump for over 30 frames, it's time to stop him
             jumptimer = 0;
         } else { // player is allowed to jump higher (not yet 30 frames of jumping)
             jumptimer++;
@@ -274,8 +323,8 @@ function playerWalkingAnim(){
         player.animations.play('walkingLookingLeft');
 }
 function getPlayerJumpingHeight(){
-    var runningBonus = player.isRunning?20:0;
-    return ((120+runningBonus)+(player.currentAcceleration*0.1806))*-1;//0.319
+    var runningBonus = player.isRunning?30:0;
+    return ((100+runningBonus)+(player.currentAcceleration*0.3163))*-1;//0.319
 }
 function playerAcceleration(){
     if(player.currentAcceleration>player.topAcceleration)
@@ -304,6 +353,9 @@ function setAnimByMomentum(){
     if(player.haveMomentum){playerAirFastAnim();}
     else{player.body.velocity.y<0?playerJumpingAnim():playerFallingAnim();}
 }
+function hitPlayer(body1, body2){
+    body1.currentHp -= 1; //replace with baddie dammage
+}
 function addAttributsToPlayer(player){
     player = game.add.sprite(34, game.world.height - 125, 'maria');
     player.lookingRight = true;
@@ -315,6 +367,11 @@ function addAttributsToPlayer(player){
     player.isRunning = false;
     player.haveMomentum = false;
     player.currentAcceleration = 0;
+    player.maxHp = 5
+    player.currentHp = player.maxHp;
+    player.currentLvl = 1;
+    player.currentExp = 0;
+    player.nextLvl = player.currentLvl * 1000;
     player.gotBoost = false;
     return player;
 }
