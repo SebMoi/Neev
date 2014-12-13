@@ -187,24 +187,33 @@ function render() {
     game.debug.text('Player Next Lvl: ' + player.nextLvl, 32, 220+5);
 }
 function playerBasicMouvementAnimation(){
-    player.body.velocity.x = 0;
+    if(player.body.touching.down){
+        if(Math.abs(player.body.velocity.x) >0){
+                player.body.velocity.x = player.body.velocity.x*0.85;
+        }
+    }else{
+        if(Math.abs(player.body.velocity.x) >0){
+                player.body.velocity.x = player.body.velocity.x*0.99;
+        }
+    }
+    //player.body.velocity.x = 0;
     
     //Test let a trail when with momentum
     if(player.haveMomentum){
-        /*player.lookingRight?
-             momentum = game.add.sprite(player.body.x-5, player.body.y, 'momentum'):
-             momentum = game.add.sprite(player.body.x+5, player.body.y, 'momentum');*/
+        player.lookingRight?
+             momentum = game.add.sprite(player.body.x-5, player.body.y, 'maria'):
+             momentum = game.add.sprite(player.body.x+5, player.body.y, 'maria');
 
         //var curAnim = player.animations.currentAnim._frames;
-        //var anim = momentum.animations.add('momentumAnimation',player.animations.currentAnim._frames,300,false);
-        //momentum.animations.play(anim.name);
-        /*var anim = momentum.animations.add('momentumAnimation',[0,1,2,0,1,2],30,false);
+        var anim = momentum.animations.add('momentumAnimation',player.animations.currentAnim._frames,300,false);
+        momentum.animations.play(anim.name);
+        //var anim = momentum.animations.add('momentumAnimation',[0,1,2,0,1,2],30,false);
         game.world.swap(player, momentum);
-        momentum.animations.play('momentumAnimation');
+        //momentum.animations.play('momentumAnimation');
         anim.killOnComplete = true;
         anim.onComplete.add(function() {
             deadGroup.add(this);
-        }, momentum);*/
+        }, momentum);
         
     }
     checkIfPlayerHaveMomentum();

@@ -1,1 +1,7 @@
 http://examples.phaser.io/_site/view_full.html?d=p2%20physics&f=contact+material.js&t=contact%20material
+
+http://examples.phaser.io/_site/view_full.html?d=p2%20physics&f=platformer+material.js&t=platformer%20material
+
+http://examples.phaser.io/_site/view_full.html?d=p2%20physics&f=contact+material.js&t=contact%20material
+
+http://examples.phaser.io/_site/view_full.html?d=p2%20physics&f=contact+material.js&t=contact%20material

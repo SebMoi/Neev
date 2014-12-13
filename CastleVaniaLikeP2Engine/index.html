@@ -15,9 +15,10 @@
 
 <script type="text/javascript">
 
-var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update,render: render });
+var game = new Phaser.Game(800, 600, Phaser.CANVAS, '', { preload: preload, create: create, update: update,render: render });
 var playerCollisionGroup;
 var baddiesCollisionGroup;
+var envirCollisonGroup;
 var platforms;
 var player;
 var momentum;
@@ -44,6 +45,7 @@ function create() {
     //  Create our collision groups. One for the player, one for the pandas
     playerCollisionGroup = game.physics.p2.createCollisionGroup();
     baddiesCollisionGroup = game.physics.p2.createCollisionGroup();
+    envirCollisonGroup = game.physics.p2.createCollisionGroup();
 
     // So the 2 groups collide with wach other but they collide with the world bound
     game.physics.p2.updateBoundsCollisionGroup();
@@ -64,6 +66,7 @@ function create() {
 
 
     // Here we create the ground.
+    //var ground = game.physics.p2.createMaterial(0,game.world.height - 64,'worldMaterial');
     var ground = platforms.create(0, game.world.height - 64, 'ground');
  
     //  Scale it to fit the width of the game (the original sprite is 400x32 in size)
@@ -73,6 +76,7 @@ function create() {
     ground.body.immovable = true;
  
     //  Now let's create two ledges
+    //var ledge = game.physics.p2.createMaterial(400,400,'ground');
     var ledge = platforms.create(400, 400, 'ground');
  
     ledge.body.immovable = true;
@@ -80,7 +84,9 @@ function create() {
     //ledge = platforms.create(-150, 250, 'ground');
  
     ledge.body.immovable = true;
-
+    debugger;
+    //ground.body.setCollisionGroup(envirCollisonGroup);
+    //ledge.body.setCollisionGroup(envirCollisonGroup);
 
     var baddies = game.add.group();
     baddies.enableBody = true;
@@ -90,7 +96,7 @@ function create() {
     players.enableBody = true;
     players.physicsBodyType = Phaser.Physics.P2JS;
 
-    for (var i = 0; i < 10; i++)
+    for (var i = 0; i < 1000; i++)
     {
         var baddie = baddies.create(game.world.randomX, game.world.randomY, 'baddie');
         baddie.body.setRectangle(32, 32);
@@ -101,7 +107,8 @@ function create() {
         //  Baddies will collide against themselves and the player
         //  If you don't set this they'll not collide with anything.
         //  The first parameter is either an array or a single collision group.
-        baddie.body.collides(playerCollisionGroup);
+        baddie.body.collides([playerCollisionGroup,envirCollisonGroup]);
+
     }
     // The player and its settings
     player = addAttributsToPlayer(player);
@@ -154,6 +161,58 @@ function update() {
     }
 }
 function playerBasicMouvementAnimation(){
+	player.body.velocity.x = 0;
+	checkIfPlayerHaveMomentum();
+    checkIfPlayerisRunning();
+
+    if (cursors.left.isDown){
+    	player.body.velocity.x = -200;
+    	debugger;
+        if(cursors.down.isDown && (!ifCanJump())){
+            player.body.velocity.y +=player.forcedLandingSpeed;
+        }
+        player.lookingRight = false;
+        if(player.body.velocity.y !=0){
+            if(player.haveMomentum){
+                playerAirFastAnim();
+            }
+            else{
+                player.body.velocity.y<0?playerJumpingAnim():playerFallingAnim(); 
+            }
+        }else{
+            setMovingAnim();
+        }
+        //  Move to the left
+        player.body.velocity.x = playerAcceleration();
+    }else if (cursors.right.isDown){
+        if(cursors.down.isDown && (!ifCanJump())){
+            player.body.velocity.y +=player.forcedLandingSpeed;
+        }
+        player.lookingRight = true;
+        if(player.body.velocity.y !=0){
+            setAnimByMomentum();
+        }else{
+            setMovingAnim();
+        }
+        //  Move to the right
+        player.body.velocity.x = playerAcceleration();
+    }else if(cursors.down.isDown){
+        if(ifCanJump()){
+            player.currentAcceleration = 0;
+        }
+        if(ifCanJump() && player.body.velocity.x ==0){
+            playerCrouchedAnim();
+        }else{
+            if(player.body.velocity.x !=0 && ifCanJump()){
+                setMovingAnim();
+            }else{
+                setAnimByMomentum();
+            }
+            if((!cursors.left.isDown) && (!cursors.right.isDown)){
+                player.body.velocity.y +=player.forcedLandingSpeed*2.5;
+            }
+        }
+    }
 }
 function render() {
 	game.debug.text('Player Hp: ' + player.currentHp, 32, 180+5);
@@ -198,14 +257,59 @@ function playerWalkingAnim(){
         player.animations.play('walkingLookingRight'):
         player.animations.play('walkingLookingLeft');
 }
+function playerAcceleration(){
+    if(player.currentAcceleration>player.topAcceleration)
+        player.currentAcceleration = player.topAcceleration;
+    var v = player.startSpeed+(player.currentAcceleration +=setAccelerationByPlayerStatus());
+    if(player.gotBoost){v += 40;}
+    return player.lookingRight?v:(v*-1);
+}
+function setAccelerationByPlayerStatus(){
+    return player.isRunning?
+        (player.HaveMomentum?player.acceleration*1.7:player.acceleration*1.5):player.acceleration;
+}
+function checkIfPlayerHaveMomentum(){
+    player.haveMomentum = (player.currentAcceleration >= (player.topAcceleration*0.6));
+}
+function checkIfPlayerisRunning(){
+    player.isRunning = (player.currentAcceleration >= player.runningSpeedPoint);
+    if(player.currentAcceleration == 0){ player.gotBoost = false;}
+    if(player.isRunning && !player.gotBoost){player.gotBoost = true;}
+}
+function setAnimByMomentum(){
+    if(player.haveMomentum){playerAirFastAnim();}
+    else{player.body.velocity.y<0?playerJumpingAnim():playerFallingAnim();}
+}
 function hitPlayer(){
     player.currentHp -= 1; //replace with baddie dammage
+}
+function ifCanJump() {
+
+    var yAxis = p2.vec2.fromValues(0, 1);
+    var result = false;
+
+    for (var i = 0; i < game.physics.p2.world.narrowphase.contactEquations.length; i++)
+    {
+        var c = game.physics.p2.world.narrowphase.contactEquations[i];
+
+        if (c.bodyA === player.body.data || c.bodyB === player.body.data)
+        {
+            var d = p2.vec2.dot(c.normalA, yAxis); // Normal dot Y-axis
+            if (c.bodyA === player.body.data) d *= -1;
+            if (d > 0.5) result = true;
+        }
+    }
+    
+    return result;
+
 }
 function addAttributsToPlayer(player){
     //player = game.add.sprite(34, game.world.height - 125, 'maria');
     player = players.create(34, game.world.height - 125, 'player');
     player.body.setRectangle(22, 46);
+    player.body.fixedRotation = true;
     player.body.setCollisionGroup(playerCollisionGroup);
+    player.body.collides(envirCollisonGroup);
     player.body.collides(baddiesCollisionGroup, hitPlayer, this);
     player.lookingRight = true;
     player.forcedLandingSpeed = 25;
