@@ -15,37 +15,44 @@
 
 <script type="text/javascript">
 
-var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update,render: render });
 var platforms;
 var player;
+var momentum;
+var jumpButton;
+var deadGroup;
+var lastMomentumAnim = null;
+var jumptimer = 0;
 
 function preload() {
 	game.load.image('sky', 'assets/sky.png');
     game.load.image('ground', 'assets/platform.png');
     game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
     game.load.spritesheet('maria', 'assets/mariaWalkingStanding.png', 34, 46);
+    game.load.spritesheet('momentum', 'assets/momentumSprite.png', 34, 46);
 }
 
 function create() {
-	game.add.sprite(0, 0, 'star');
 
+    deadGroup = game.add.group();
 	 //  We're going to be using physics, so enable the Arcade Physics system
     game.physics.startSystem(Phaser.Physics.ARCADE);
  
     //  A simple background for our game
     game.add.sprite(0, 0, 'sky');
- 
     //  The platforms group contains the ground and the 2 ledges we can jump on
     platforms = game.add.group();
  
     //  We will enable physics for any object that is created in this group
     platforms.enableBody = true;
- 
+
+    jumpButton = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+
     // Here we create the ground.
     var ground = platforms.create(0, game.world.height - 64, 'ground');
  
     //  Scale it to fit the width of the game (the original sprite is 400x32 in size)
-    ground.scale.setTo(2, 2);
+    ground.scale.setTo(1, 2);
  
     //  This stops it from falling away when you jump on it
     ground.body.immovable = true;
@@ -55,13 +62,13 @@ function create() {
  
     ledge.body.immovable = true;
  
-    ledge = platforms.create(-150, 250, 'ground');
+    //ledge = platforms.create(-150, 250, 'ground');
  
     ledge.body.immovable = true;
 
     // The player and its settings
-    player = addAttributsToMaria(player);
-
+    player = addAttributsToPlayer(player);
+    
     //  We need to enable physics on the player
     game.physics.arcade.enable(player);
  
@@ -74,123 +81,241 @@ function create() {
     player.animations.add('stillLookingLeft', [3,2], 4, true);
     player.animations.add('stillLookingRight', [0,1], 4, true);
 
-    player.animations.add('movingLeftCycle', [35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20], 22, true);
-    player.animations.add('movingRightCycle', [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19], 22, true);
+    player.animations.add('runningLeftCycle', [35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20], 24, true);
+    player.animations.add('runningRightCycle', [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19], 24, true);
+
+    player.animations.add('runningFastLeftCycle', [35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20], 32, true);
+    player.animations.add('runningFastRightCycle', [4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19], 32, true);
 
     player.animations.add('jumpingLookingRight', [36,37], 7, true);
     player.animations.add('jumpingLookingLeft', [39,38], 7, true);
 
-    player.animations.add('fallingLookingRight', [40,41,42,43,44,45,46,47], 17, true);
-    player.animations.add('fallingLookingLeft', [55,54,53,52,51,50,49,48], 17, true);
+    player.animations.add('airFastLookingRight', [40,41,42,43,44,45,46,47], 17, true);
+    player.animations.add('airFastLookingLeft', [55,54,53,52,51,50,49,48], 17, true);
 
     player.animations.add('crouchedLookingRight', [56,57], 2, true);
     player.animations.add('crouchedLookingLeft', [59,58], 2, true);
 
+    player.animations.add('fallingLookingRight', [60,61,62,63], 7, true);
+    player.animations.add('fallingLookingLeft', [67,66,65,64], 7, true);
+
+    player.animations.add('walkingLookingRight', [68,69,70,71], 10, false);
+    player.animations.add('walkingLookingLeft', [75,74,73,72], 10, false);
+
 }
 
 function update() {
-
+    if(player.currentAcceleration == 0){
+        deadGroup = null;
+        deadGroup = game.add.group();
+    }
     //  Collide the player and the stars with the platforms
     game.physics.arcade.collide(player, platforms);
 
     cursors = game.input.keyboard.createCursorKeys();
 
-    //  Reset the players velocity (movement)
-   
- 
-    mariaBasicMouvementAnimation();
-    
-    //  Allow the player to jump if they are touching the ground.
-    if (cursors.up.isDown && player.body.touching.down)
-    {
-        player.body.velocity.y = -350;
+    playerBasicMouvementAnimation();
+
+    deadGroup.forEach(function(sprite) {
+        sprite.kill();
+    });
+    if(player.playerAcceleration == 0){
+        deadGroup.forEach(function(sprite) {
+            sprite.destroy();
+        });
     }
+    
+    
 }
-function mariaBasicMouvementAnimation(){
+function render() {
+    game.debug.text('IsRunning: ' + player.isRunning, 32, 20+5);
+    game.debug.text('HaveMomentum: ' + player.haveMomentum, 32, 40+5);
+    game.debug.text('CurrentAcceleration: ' + player.currentAcceleration.toFixed(2), 32, 60+5);
+    game.debug.text('CurrentRuningVelocity: ' + player.body.velocity.x.toFixed(2), 32, 80+5);
+    game.debug.text('CurrentFallingVelocity: ' + player.body.velocity.y.toFixed(2), 32, 100+5);
+    game.debug.text('JumpHeight: ' + getPlayerJumpingHeight().toFixed(2), 32, 120+5);
+    game.debug.text('TouchingDown: ' + player.body.touching.down, 32, 140+5);
+
+}
+function playerBasicMouvementAnimation(){
     player.body.velocity.x = 0;
+    
+    //Test let a trail when with momentum
+    if(player.haveMomentum){
+        /*player.lookingRight?
+             momentum = game.add.sprite(player.body.x-5, player.body.y, 'momentum'):
+             momentum = game.add.sprite(player.body.x+5, player.body.y, 'momentum');*/
+
+        //var curAnim = player.animations.currentAnim._frames;
+        //var anim = momentum.animations.add('momentumAnimation',player.animations.currentAnim._frames,300,false);
+        //momentum.animations.play(anim.name);
+        /*var anim = momentum.animations.add('momentumAnimation',[0,1,2,0,1,2],30,false);
+        game.world.swap(player, momentum);
+        momentum.animations.play('momentumAnimation');
+        anim.killOnComplete = true;
+        anim.onComplete.add(function() {
+            deadGroup.add(this);
+        }, momentum);*/
+        
+    }
+    checkIfPlayerHaveMomentum();
+    checkIfPlayerisRunning();
 
     if (cursors.left.isDown){
+        if(cursors.down.isDown && (!player.body.touching.down)){
+            player.body.velocity.y +=player.forcedLandingSpeed;
+        }
         player.lookingRight = false;
         if(player.body.velocity.y !=0){
-            if(player.body.velocity.y<0){
-                player.lookingRight?
-                player.animations.play('jumpingLookingRight'):
-                player.animations.play('jumpingLookingLeft');
-            }else{
-                player.lookingRight?
-                player.animations.play('fallingLookingRight'):
-                player.animations.play('fallingLookingLeft');
-            }   
+            if(player.haveMomentum){
+                playerAirFastAnim();
+            }
+            else{
+                player.body.velocity.y<0?playerJumpingAnim():playerFallingAnim(); 
+            }
         }else{
-            player.animations.play('movingLeftCycle');
+            setMovingAnim();
         }
         //  Move to the left
-        player.body.velocity.x = mariaAcceleration();
+        player.body.velocity.x = playerAcceleration();
     }else if (cursors.right.isDown){
+        if(cursors.down.isDown && (!player.body.touching.down)){
+            player.body.velocity.y +=player.forcedLandingSpeed;
+        }
         player.lookingRight = true;
         if(player.body.velocity.y !=0){
-            if(player.body.velocity.y <0){
-                player.lookingRight?
-                player.animations.play('jumpingLookingRight'):
-                player.animations.play('jumpingLookingLeft');
-            }else{
-                player.lookingRight?
-                player.animations.play('fallingLookingRight'):
-                player.animations.play('fallingLookingLeft');
-            }
+            setAnimByMomentum();
         }else{
-            player.animations.play('movingRightCycle');
+            setMovingAnim();
         }
         //  Move to the right
-        player.body.velocity.x = mariaAcceleration();
+        player.body.velocity.x = playerAcceleration();
     }else if(cursors.down.isDown){
-        
-            if(player.body.velocity.y ==0){
-                player.lookingRight?
-                    player.animations.play('crouchedLookingRight'):
-                    player.animations.play('crouchedLookingLeft');
+        if(player.body.touching.down){
+            player.currentAcceleration = 0;
+        }
+        if(player.body.touching.down && player.body.velocity.x ==0){
+            playerCrouchedAnim();
+        }else{
+            if(player.body.velocity.x !=0 && player.body.touching.down){
+                setMovingAnim();
             }else{
-                player.lookingRight?
-                    player.animations.play('fallingLookingRight'):
-                    player.animations.play('fallingLookingLeft');
-                player.body.velocity.y +=player.forcedLandingSpeed;
+                setAnimByMomentum();
             }
+            if((!cursors.left.isDown) && (!cursors.right.isDown)){
+                player.body.velocity.y +=player.forcedLandingSpeed*2.5;
+            }
+        }
     }else{
         //  Set animation with current orientation
         if(player.body.velocity.y !=0){
-            if(player.body.velocity.y <0){
-                player.lookingRight?
-                player.animations.play('jumpingLookingRight'):
-                player.animations.play('jumpingLookingLeft');
-            }else{
-                player.lookingRight?
-                player.animations.play('fallingLookingRight'):
-                player.animations.play('fallingLookingLeft');
-            }            
+            setAnimByMomentum();          
         }else{
             player.currentAcceleration = 0;
-            player.lookingRight?
-            player.animations.play('stillLookingRight'):
-            player.animations.play('stillLookingLeft');
+            playerStillAnim();
         }
     }
-}
-function mariaAcceleration(){
-    var v = player.startSpeed+(player.currentAcceleration +=player.acceleration);
 
-    v = v>player.topSpeed?
-        player.topSpeed:v;
-    console.log(v);
+    if((cursors.up.isDown || jumpButton.isDown) && player.body.touching.down)
+    {   //player is on the ground, so he is allowed to start a jump
+
+        jumptimer = 1;
+        player.body.velocity.y = getPlayerJumpingHeight();
+    }else if ((cursors.up.isDown || jumpButton.isDown) && (jumptimer != 0)){
+        //player is no longer on the ground, but is still holding the jump key
+        if (jumptimer > 30) { // player has been holding jump for over 30 frames, it's time to stop him
+            jumptimer = 0;
+        } else { // player is allowed to jump higher (not yet 30 frames of jumping)
+            jumptimer++;
+            player.body.velocity.y = getPlayerJumpingHeight();
+        }
+    } else if (jumptimer != 0) { //reset jumptimer since the player is no longer holding the jump key
+        jumptimer = 0;
+    }
+}
+function playerAirFastAnim(){
+    player.lookingRight?
+        player.animations.play('airFastLookingRight'):
+        player.animations.play('airFastLookingLeft');
+}
+function playerFallingAnim(){
+    player.lookingRight?
+        player.animations.play('fallingLookingRight'):
+        player.animations.play('fallingLookingLeft');
+}
+function playerStillAnim(){
+    player.lookingRight?
+        player.animations.play('stillLookingRight'):
+        player.animations.play('stillLookingLeft');
+}
+function playerJumpingAnim(){
+    player.lookingRight?
+        player.animations.play('jumpingLookingRight'):
+        player.animations.play('jumpingLookingLeft');
+}
+function playerCrouchedAnim(){
+    player.lookingRight?
+        player.animations.play('crouchedLookingRight'):
+        player.animations.play('crouchedLookingLeft');
+}
+function playerRunningAnim(){
+    player.lookingRight?
+        player.animations.play('runningRightCycle'):
+        player.animations.play('runningLeftCycle');
+}
+function playerRunningFastAnim(){
+    player.lookingRight?
+        player.animations.play('runningFastRightCycle'):
+        player.animations.play('runningFastLeftCycle');
+}
+function playerWalkingAnim(){
+    player.lookingRight?
+        player.animations.play('walkingLookingRight'):
+        player.animations.play('walkingLookingLeft');
+}
+function getPlayerJumpingHeight(){
+    var runningBonus = player.isRunning?20:0;
+    return ((120+runningBonus)+(player.currentAcceleration*0.1806))*-1;//0.319
+}
+function playerAcceleration(){
+    if(player.currentAcceleration>player.topAcceleration)
+        player.currentAcceleration = player.topAcceleration;
+    var v = player.startSpeed+(player.currentAcceleration +=setAccelerationByPlayerStatus());
+    if(player.gotBoost){v += 40;}
     return player.lookingRight?v:(v*-1);
 }
-function addAttributsToMaria(player){
-    player = game.add.sprite(34, game.world.height - 150, 'maria');
-    player.lookingRight = false;
-    player.forcedLandingSpeed = 15;
-    player.acceleration = 3;
-    player.startSpeed = 50;
-    player.topSpeed = 150;
+function setAccelerationByPlayerStatus(){
+    return player.isRunning?
+        (player.HaveMomentum?player.acceleration*1.7:player.acceleration*1.5):player.acceleration;
+}
+function checkIfPlayerHaveMomentum(){
+    player.haveMomentum = (player.currentAcceleration >= (player.topAcceleration*0.6));
+}
+function checkIfPlayerisRunning(){
+    player.isRunning = (player.currentAcceleration >= player.runningSpeedPoint);
+    if(player.currentAcceleration == 0){ player.gotBoost = false;}
+    if(player.isRunning && !player.gotBoost){player.gotBoost = true;}
+}
+function setMovingAnim(){
+    if(player.isRunning){player.haveMomentum?playerRunningFastAnim():playerRunningAnim();}
+    else{playerWalkingAnim();}
+}
+function setAnimByMomentum(){
+    if(player.haveMomentum){playerAirFastAnim();}
+    else{player.body.velocity.y<0?playerJumpingAnim():playerFallingAnim();}
+}
+function addAttributsToPlayer(player){
+    player = game.add.sprite(34, game.world.height - 125, 'maria');
+    player.lookingRight = true;
+    player.forcedLandingSpeed = 25;
+    player.acceleration = 1;
+    player.startSpeed = 90;
+    player.runningSpeedPoint = 20;
+    player.topAcceleration = 220;
+    player.isRunning = false;
+    player.haveMomentum = false;
     player.currentAcceleration = 0;
+    player.gotBoost = false;
     return player;
 }
 </script>
