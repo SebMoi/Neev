@@ -15,7 +15,13 @@
 
 <script type="text/javascript">
 
-var game = new Phaser.Game(800, 600, Phaser.CANVAS, '', { preload: preload, create: create, update: update,render: render });
+var game = new Phaser.Game(800, 600, Phaser.CANVAS, '', { 
+        preload : preload,
+        create  : create,
+        update  : update,
+        render  : render 
+    }
+);
 var playerCollisionGroup;
 var baddiesCollisionGroup;
 var envirCollisonGroup;
@@ -35,85 +41,17 @@ function preload() {
 }
 
 function create() {
-	deadGroup = game.add.group();
-	 //  We're going to be using physics, so enable the Arcade Physics system
+	
+    bg = game.add.tileSprite(0, 0, 800, 600, 'sky');
+
+    //  Enable p2 physics
     game.physics.startSystem(Phaser.Physics.P2JS);
 
-    //Enable collision callback
-    game.physics.p2.setImpactEvents(true);
-
-    //  Create our collision groups. One for the player, one for the pandas
-    playerCollisionGroup = game.physics.p2.createCollisionGroup();
-    baddiesCollisionGroup = game.physics.p2.createCollisionGroup();
-    envirCollisonGroup = game.physics.p2.createCollisionGroup();
-
-    // So the 2 groups collide with wach other but they collide with the world bound
-    game.physics.p2.updateBoundsCollisionGroup();
-
-    //  A simple background for our game
-    var sky = game.add.sprite(0, 0, 'sky');
-
-    // Fix sky to camera 
-    sky.fixedToCamera = true;
-
-    //  The platforms group contains the ground and the 2 ledges we can jump on
-    platforms = game.add.group();
- 
-    //  We will enable physics for any object that is created in this group
-    platforms.enableBody = true;
-
-    jumpButton = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
-
-
-    // Here we create the ground.
-    //var ground = game.physics.p2.createMaterial(0,game.world.height - 64,'worldMaterial');
-    var ground = platforms.create(0, game.world.height - 64, 'ground');
- 
-    //  Scale it to fit the width of the game (the original sprite is 400x32 in size)
-    ground.scale.setTo(1, 2);
- 
-    //  This stops it from falling away when you jump on it
-    ground.body.immovable = true;
- 
-    //  Now let's create two ledges
-    //var ledge = game.physics.p2.createMaterial(400,400,'ground');
-    var ledge = platforms.create(400, 400, 'ground');
- 
-    ledge.body.immovable = true;
- 
-    //ledge = platforms.create(-150, 250, 'ground');
- 
-    ledge.body.immovable = true;
-    debugger;
-    //ground.body.setCollisionGroup(envirCollisonGroup);
-    //ledge.body.setCollisionGroup(envirCollisonGroup);
-
-    var baddies = game.add.group();
-    baddies.enableBody = true;
-    baddies.physicsBodyType = Phaser.Physics.P2JS;
-
-    players = game.add.group();
-    players.enableBody = true;
-    players.physicsBodyType = Phaser.Physics.P2JS;
-
-    for (var i = 0; i < 1000; i++)
-    {
-        var baddie = baddies.create(game.world.randomX, game.world.randomY, 'baddie');
-        baddie.body.setRectangle(32, 32);
-
-        //  Tell the baddie to use the baddiesCollisionGroup 
-        baddie.body.setCollisionGroup(baddiesCollisionGroup);
-
-        //  Baddies will collide against themselves and the player
-        //  If you don't set this they'll not collide with anything.
-        //  The first parameter is either an array or a single collision group.
-        baddie.body.collides([playerCollisionGroup,envirCollisonGroup]);
-
-    }
-    // The player and its settings
-    player = addAttributsToPlayer(player);
-
     game.physics.p2.gravity.y = 400;
+
+
+    //  Add a sprite
+    player = game.add.sprite(34, game.world.height - 125, 'player');
 
     //  Our two animations, walking left and right.
     player.animations.add('stillLookingLeft', [3,2], 4, true);
@@ -139,27 +77,31 @@ function create() {
 
     player.animations.add('walkingLookingRight', [68,69,70,71], 10, false);
     player.animations.add('walkingLookingLeft', [75,74,73,72], 10, false);
+
+    //  Enable if for physics. This creates a default rectangular body.
+    game.physics.p2.enable(player);
+
+    player.body.fixedRotation = true;
+
+    var spriteMaterial = game.physics.p2.createMaterial('spriteMaterial', player.body);
+    var worldMaterial = game.physics.p2.createMaterial('worldMaterial');
+
+    //  4 trues = the 4 faces of the world in left, right, top, bottom order
+    game.physics.p2.setWorldMaterial(worldMaterial, true, true, true, true);
+
+    var ground = game.add.sprite(400, game.world.height-15, 'ground');
+    game.physics.p2.enable(ground);
+    ground.body.static = true;
+    ground.body.fixedRotation = true;
+    ground.body.setMaterial(spriteMaterial);
 }
 
-function update() {
-	if(player.currentAcceleration == 0){
-        deadGroup = null;
-        deadGroup = game.add.group();
-    }
-
-    cursors = game.input.keyboard.createCursorKeys();
-
-    playerBasicMouvementAnimation();
-
-    deadGroup.forEach(function(sprite) {
-        sprite.kill();
-    });
-    if(player.playerAcceleration == 0){
-        deadGroup.forEach(function(sprite) {
-            sprite.destroy();
-        });
-    }
+function update() {	
 }
+
+function render() {
+}
+
 function playerBasicMouvementAnimation(){
 	player.body.velocity.x = 0;
 	checkIfPlayerHaveMomentum();
@@ -213,9 +155,6 @@ function playerBasicMouvementAnimation(){
             }
         }
     }
-}
-function render() {
-	game.debug.text('Player Hp: ' + player.currentHp, 32, 180+5);
 }
 function playerAirFastAnim(){
     player.lookingRight?
@@ -304,13 +243,7 @@ function ifCanJump() {
 
 }
 function addAttributsToPlayer(player){
-    //player = game.add.sprite(34, game.world.height - 125, 'maria');
-    player = players.create(34, game.world.height - 125, 'player');
-    player.body.setRectangle(22, 46);
-    player.body.fixedRotation = true;
-    player.body.setCollisionGroup(playerCollisionGroup);
-    player.body.collides(envirCollisonGroup);
-    player.body.collides(baddiesCollisionGroup, hitPlayer, this);
+    //player.body.collides(baddiesCollisionGroup, hitPlayer, this);
     player.lookingRight = true;
     player.forcedLandingSpeed = 25;
     player.acceleration = 1;
