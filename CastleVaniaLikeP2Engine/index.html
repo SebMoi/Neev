@@ -32,6 +32,8 @@ var jumpButton;
 var deadGroup;
 var lastMomentumAnim = null;
 var jumptimer = 0;
+var knockTimer = 0;
+var knockedTo;
 
 function preload() {
 	game.load.image('sky', 'assets/sky.png');
@@ -49,6 +51,8 @@ function create() {
 
     game.physics.p2.gravity.y = 400;
 
+    
+    jumpButton = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
 
     //  Add a sprite
     player = game.add.sprite(34, game.world.height - 125, 'player');
@@ -80,125 +84,318 @@ function create() {
 
     //  Enable if for physics. This creates a default rectangular body.
     game.physics.p2.enable(player);
-
+    //player.body.debug = true;
     player.body.fixedRotation = true;
+    player.body.setRectangle(13,46);
+    //player.body.addPolygon({skipSimpleCheck:true},[[6,0],[-6,0],[-6,-46],[6,-46]]);
+
+    addAttributsToPlayer();
 
     var spriteMaterial = game.physics.p2.createMaterial('spriteMaterial', player.body);
-    var worldMaterial = game.physics.p2.createMaterial('worldMaterial');
-
-    //  4 trues = the 4 faces of the world in left, right, top, bottom order
-    game.physics.p2.setWorldMaterial(worldMaterial, true, true, true, true);
+    
 
     var ground = game.add.sprite(400, game.world.height-15, 'ground');
     game.physics.p2.enable(ground);
     ground.body.static = true;
     ground.body.fixedRotation = true;
     ground.body.setMaterial(spriteMaterial);
+
+    var groundMaterial = game.physics.p2.createMaterial('groundMaterial',ground.body);
+
+    //  4 trues = the 4 faces of the world in left, right, top, bottom order
+    game.physics.p2.setWorldMaterial(groundMaterial, true, true, true, true);
+
+    //  Here is the contact material. It's a combination of 2 materials, so whenever shapes with
+    //  those 2 materials collide it uses the following settings.
+    //  A single material can be used by as many different sprites as you like.
+    var contactMaterial = game.physics.p2.createContactMaterial(spriteMaterial, groundMaterial);
+
+    var baddie = game.add.sprite(100, 100, 'baddie');
+    baddie.animations.add('movingLeft', [0,1], 10, true);
+    baddie.animations.add('movingRight', [2,3], 10, true);
+    game.physics.p2.enable(baddie);
+    baddie.body.setMaterial(baddie);
+    var baddieMaterial = game.physics.p2.createMaterial('baddieMaterial',baddie.body);
+    
+    //  Here we create a Body specific callback.
+    //  Note that only impact events between the ship and the panda are used here, the sweet/candy object is ignored.
+    player.body.createBodyCallback(baddie, baddieHitPlayer, this);
+
+    //  And before this will happen, we need to turn on impact events for the world
+    game.physics.p2.setImpactEvents(true);
 }
 
 function update() {	
+    cursors = game.input.keyboard.createCursorKeys();
+    
+    playerBasicMouvementAnimation();
 }
 
 function render() {
+    //game.debug.body(player,'rgba(0,255,0,0.4)',true);
+    var margin = 5;
+    game.debug.text('CanJump: ' + ifCanJump(), 32, 20+margin);
+    game.debug.text('IsRunning: ' + player.isRunning, 32, 40+margin);
+    game.debug.text('HaveMomentum: ' + player.haveMomentum, 32, 60+margin);
+    game.debug.text('currentAcceleration: ' + player.currentAcceleration, 32, 80+margin);
+    game.debug.text('Velocity X: ' + player.body.velocity.x.toFixed(2), 32, 100+margin);
+    game.debug.text('Player Hp: ' + player.currentHp, 32, 120+margin);
 }
 
 function playerBasicMouvementAnimation(){
-	player.body.velocity.x = 0;
-	checkIfPlayerHaveMomentum();
-    checkIfPlayerisRunning();
-
-    if (cursors.left.isDown){
-    	player.body.velocity.x = -200;
-    	debugger;
-        if(cursors.down.isDown && (!ifCanJump())){
-            player.body.velocity.y +=player.forcedLandingSpeed;
-        }
-        player.lookingRight = false;
-        if(player.body.velocity.y !=0){
-            if(player.haveMomentum){
-                playerAirFastAnim();
-            }
-            else{
-                player.body.velocity.y<0?playerJumpingAnim():playerFallingAnim(); 
-            }
-        }else{
-            setMovingAnim();
-        }
-        //  Move to the left
-        player.body.velocity.x = playerAcceleration();
-    }else if (cursors.right.isDown){
-        if(cursors.down.isDown && (!ifCanJump())){
-            player.body.velocity.y +=player.forcedLandingSpeed;
-        }
-        player.lookingRight = true;
-        if(player.body.velocity.y !=0){
-            setAnimByMomentum();
-        }else{
-            setMovingAnim();
-        }
-        //  Move to the right
-        player.body.velocity.x = playerAcceleration();
-    }else if(cursors.down.isDown){
+    if(!player.isKnockedBack){
         if(ifCanJump()){
-            player.currentAcceleration = 0;
+            player.body.velocity.y = 0;
         }
-        if(ifCanJump() && player.body.velocity.x ==0){
-            playerCrouchedAnim();
-        }else{
-            if(player.body.velocity.x !=0 && ifCanJump()){
-                setMovingAnim();
+        if((!cursors.left.isDown) && (!cursors.right.isDown)){
+            if(ifCanJump()){
+                if(Math.abs(player.body.velocity.x) >0){
+                    if(cursors.down.isDown){
+                        player.body.velocity.x = player.body.velocity.x*0.84;
+                        player.currentAcceleration = player.currentAcceleration *0.84;
+                    }else{
+                        player.body.velocity.x = player.body.velocity.x*0.94;
+                        player.currentAcceleration = player.currentAcceleration *0.94;
+                    }
+                }
             }else{
+                if(Math.abs(player.body.velocity.x) >0){
+                    player.body.velocity.x = player.body.velocity.x*0.99;
+                    player.currentAcceleration = player.currentAcceleration *0.99;
+                }
+            }
+        }
+        if(Math.abs(player.body.velocity.x) < 10){
+                player.body.velocity.x = 0;
+                player.currentAcceleration = 0;
+            }
+        checkIfPlayerHaveMomentum();
+        checkIfPlayerisRunning();
+
+        if (cursors.left.isDown){
+            if(cursors.down.isDown && (!ifCanJump())){
+                player.body.velocity.y +=player.forcedLandingSpeed;
+            }
+            player.lookingRight = false;
+            if(!ifCanJump()){
+                if(player.haveMomentum){
+                    playerAirFastAnim();
+                }
+                else{
+                    player.body.velocity.y<0?playerJumpingAnim():playerFallingAnim(); 
+                }
+            }else{
+                setMovingAnim();
+            }
+            //  Move to the left
+            player.body.velocity.x = playerAcceleration();
+        }else if (cursors.right.isDown){
+            if(cursors.down.isDown && (!ifCanJump())){
+                player.body.velocity.y +=player.forcedLandingSpeed;
+            }
+            player.lookingRight = true;
+            if(!ifCanJump()){
                 setAnimByMomentum();
+            }else{
+                setMovingAnim();
             }
-            if((!cursors.left.isDown) && (!cursors.right.isDown)){
-                player.body.velocity.y +=player.forcedLandingSpeed*2.5;
+            //  Move to the right
+            player.body.velocity.x = playerAcceleration();
+        }else if(cursors.down.isDown){
+            if(ifCanJump()){
+                player.currentAcceleration = 0;
             }
+            if(ifCanJump() && player.body.velocity.x ==0){
+                playerCrouchedAnim();
+            }else{
+                if(player.body.velocity.x !=0 && ifCanJump()){
+                    setMovingAnim();
+                }else{
+                    setAnimByMomentum();
+                }
+                if((!cursors.left.isDown) && (!cursors.right.isDown)){
+                    player.body.velocity.y +=player.forcedLandingSpeed*2.5;
+                }
+            }
+        }else{
+            //  Set animation with current orientation
+            if(!ifCanJump()){
+                setAnimByMomentum();          
+            }else{
+                if(Math.abs(player.body.velocity.x) >0){
+                    setMovingAnim();
+                }else{
+                    player.currentAcceleration = 0;
+                    playerStillAnim();
+                }
+            }
+        }
+
+        if((cursors.up.isDown || jumpButton.isDown) && ifCanJump())
+        {   //player is on the ground, so he is allowed to start a jump
+
+            jumptimer = 1;
+            player.body.velocity.y = getPlayerJumpingHeight();
+        }else if ((cursors.up.isDown || jumpButton.isDown) && (jumptimer != 0)){
+            //player is no longer on the ground, but is still holding the jump key
+            if (jumptimer > 24) { // player has been holding jump for over 30 frames, it's time to stop him
+                jumptimer = 0;
+            } else { // player is allowed to jump higher (not yet 30 frames of jumping)
+                jumptimer++;
+                player.body.velocity.y = getPlayerJumpingHeight();
+            }
+        } else if (jumptimer != 0) { //reset jumptimer since the player is no longer holding the jump key
+            jumptimer = 0;
+        }
+    }else{
+        playerFallingAnim();
+        if(knockTimer == 0){
+            knockTimer = 1;
+        }
+        
+        //player is no longer on the ground, but is still holding the jump key
+        if (knockTimer > 40) { // player has been holding jump for over 30 frames, it's time to stop him
+            knockTimer = 0;
+        } else {
+            knockTimer++;
+        }
+        if (knockTimer == 0) { //reset jumptimer since the player is no longer holding the jump key
+            player.isKnockedBack = false;
+            player.body.sprite.alpha = 1;
         }
     }
 }
 function playerAirFastAnim(){
-    player.lookingRight?
-        player.animations.play('airFastLookingRight'):
-        player.animations.play('airFastLookingLeft');
+    if(player.lookingRight){
+        player.animations.play('airFastLookingRight');
+        if(player.currentHitBox != 'airFastLookingRight'){
+            player.currentHitBox = 'airFastLookingRight';
+            player.body.setRectangle(27,29,0,0);
+        }
+    }else{
+         player.animations.play('airFastLookingLeft');
+        if(player.currentHitBox != 'airFastLookingLeft'){
+            player.currentHitBox = 'airFastLookingLeft';
+            player.body.setRectangle(27,29,0,0);
+        }
+    }
 }
 function playerFallingAnim(){
-    player.lookingRight?
-        player.animations.play('fallingLookingRight'):
-        player.animations.play('fallingLookingLeft');
+    if(player.lookingRight){
+        player.animations.play('fallingLookingRight');
+        if(player.currentHitBox != 'fallingLookingRight'){
+            player.currentHitBox = 'fallingLookingRight';
+            player.body.setRectangle(13,46,5,0);
+        }
+    }else{
+         player.animations.play('fallingLookingLeft');
+        if(player.currentHitBox != 'fallingLookingLeft'){
+            player.currentHitBox = 'fallingLookingLeft';
+            player.body.setRectangle(13,46,-4,0);
+        }
+    }
 }
 function playerStillAnim(){
-    player.lookingRight?
-        player.animations.play('stillLookingRight'):
+    if(player.lookingRight){
+        player.animations.play('stillLookingRight');
+        if(player.currentHitBox != 'stillLookingRight'){
+            player.currentHitBox = 'stillLookingRight';
+            player.body.setRectangle(13,46);
+            //player.body.addPolygon({skipSimpleCheck:true},[[6,0],[-6,0],[-6,-46],[6,-46]]);
+        }
+    }else{
         player.animations.play('stillLookingLeft');
+        if(player.currentHitBox != 'stillLookingLeft'){
+            player.currentHitBox = 'stillLookingLeft';
+            player.body.setRectangle(13,46,-6);
+        }
+    }
 }
 function playerJumpingAnim(){
-    player.lookingRight?
-        player.animations.play('jumpingLookingRight'):
+    if(player.lookingRight){
+        player.animations.play('jumpingLookingRight');
+        if(player.currentHitBox != 'jumpingLookingRight'){
+            player.currentHitBox = 'jumpingLookingRight';
+            player.body.setRectangle(13,46,0,0);
+        }
+    }else{
         player.animations.play('jumpingLookingLeft');
+        if(player.currentHitBox != 'jumpingLookingLeft'){
+            player.currentHitBox = 'jumpingLookingLeft';
+            player.body.setRectangle(13,46,-6,0);
+        }
+    }
 }
 function playerCrouchedAnim(){
-    player.lookingRight?
-        player.animations.play('crouchedLookingRight'):
+
+    if(player.lookingRight){
+        player.animations.play('crouchedLookingRight');
+        if(player.currentHitBox != 'crouchedLookingRight'){
+            player.currentHitBox = 'crouchedLookingRight';
+            player.body.setRectangle(15,27,0,10);
+        }
+    }else{
         player.animations.play('crouchedLookingLeft');
+        if(player.currentHitBox != 'crouchedLookingLeft'){
+            player.currentHitBox = 'crouchedLookingLeft';
+            player.body.setRectangle(15,27,-2,10);
+        }
+    }
 }
 function playerRunningAnim(){
-    player.lookingRight?
-        player.animations.play('runningRightCycle'):
+    if(player.lookingRight){
+        player.animations.play('runningRightCycle');
+        if(player.currentHitBox != 'runningRightCycle'){
+            player.currentHitBox = 'runningRightCycle';
+            player.body.setRectangle(15,46,5);
+        }
+    }else{
         player.animations.play('runningLeftCycle');
+        if(player.currentHitBox != 'runningLeftCycle'){
+            player.currentHitBox = 'runningLeftCycle';
+            player.body.setRectangle(16,46,-5);
+        }
+    }
 }
 function playerRunningFastAnim(){
-    player.lookingRight?
-        player.animations.play('runningFastRightCycle'):
+    if(player.lookingRight){
+        player.animations.play('runningFastRightCycle');
+        if(player.currentHitBox != 'runningFastRightCycle'){
+            player.currentHitBox = 'runningFastRightCycle';
+            player.body.setRectangle(15,46,5);
+        }
+    }else{
         player.animations.play('runningFastLeftCycle');
+        if(player.currentHitBox != 'runningFastLeftCycle'){
+            player.currentHitBox = 'runningFastLeftCycle';
+            player.body.setRectangle(16,46,-5);
+        }
+    }
 }
 function playerWalkingAnim(){
-    player.lookingRight?
-        player.animations.play('walkingLookingRight'):
+    if(player.lookingRight){
+        player.animations.play('walkingLookingRight');
+        if(player.currentHitBox != 'walkingLookingRight'){
+            player.currentHitBox = 'walkingLookingRight';
+            player.body.setRectangle(13,46);
+            //player.body.addPolygon({skipSimpleCheck:true},[[6,0],[-6,0],[-6,-46],[6,-46]]);
+        }
+    }else{
         player.animations.play('walkingLookingLeft');
+        if(player.currentHitBox != 'walkingLookingLeft'){
+            player.currentHitBox = 'walkingLookingLeft';
+            player.body.setRectangle(13,46,-6);
+        }
+    }
+}
+function setMovingAnim(){
+    if(player.isRunning){player.haveMomentum?playerRunningFastAnim():playerRunningAnim();}
+    else{playerWalkingAnim();}
 }
 function playerAcceleration(){
     if(player.currentAcceleration>player.topAcceleration)
         player.currentAcceleration = player.topAcceleration;
+
     var v = player.startSpeed+(player.currentAcceleration +=setAccelerationByPlayerStatus());
     if(player.gotBoost){v += 40;}
     return player.lookingRight?v:(v*-1);
@@ -215,12 +412,33 @@ function checkIfPlayerisRunning(){
     if(player.currentAcceleration == 0){ player.gotBoost = false;}
     if(player.isRunning && !player.gotBoost){player.gotBoost = true;}
 }
+function getPlayerJumpingHeight(){
+    var runningBonus = player.isRunning?30:0;
+    return ((100+runningBonus)+(player.currentAcceleration*0.3163))*-1;//0.319
+}
 function setAnimByMomentum(){
-    if(player.haveMomentum){playerAirFastAnim();}
+    if(player.haveMomentum){player.body.velocity.y<0?playerAirFastAnim():playerFallingAnim();}
     else{player.body.velocity.y<0?playerJumpingAnim():playerFallingAnim();}
 }
-function hitPlayer(){
-    player.currentHp -= 1; //replace with baddie dammage
+function baddieHitPlayer(){
+    if(!player.isKnockedBack){
+        player.currentHp -= 1; //replace with baddie dammage
+        player.isKnockedBack = true;
+        player.animations.stop();
+        player.frame = 11;
+        player.body.sprite.alpha = 0.5;
+        
+        
+        if(knockedTo == 0)
+        {
+            knockedTo = (player.body.x - distance);
+            immortal = true;
+        }
+        
+        
+        player.lookingRight?player.body.velocity.x = -300:player.body.velocity.x = 300;
+        player.body.velocity.y = -150;
+    }
 }
 function ifCanJump() {
 
@@ -242,7 +460,7 @@ function ifCanJump() {
     return result;
 
 }
-function addAttributsToPlayer(player){
+function addAttributsToPlayer(){
     //player.body.collides(baddiesCollisionGroup, hitPlayer, this);
     player.lookingRight = true;
     player.forcedLandingSpeed = 25;
@@ -259,6 +477,8 @@ function addAttributsToPlayer(player){
     player.currentExp = 0;
     player.nextLvl = player.currentLvl * 1000;
     player.gotBoost = false;
+    player.currentHitBox = null;
+    player.isKnockedBack = false;
     return player;
 }
 </script>
